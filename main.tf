@@ -1,12 +1,7 @@
-###############################################################################
-# Root module: project-9969
-# Wires all child modules together. Everything that's "about you" lives in the
-# locals block below so you only change it in one place.
-###############################################################################
 
 locals {
-  humber_id = "9969"          # last 4 digits of your Humber ID
-  location  = "eastus" # Toronto region, supports availability zones
+  humber_id = "9969"          
+  location  = "eastus" 
 
   common_tags = {
     Project        = "CCGC 5502 Terraform Project"
@@ -28,7 +23,6 @@ locals {
 }
 
 # Passwords stay OUT of git. Set it before running Terraform:
-#   export TF_VAR_admin_password='YourStr0ng!Pass'
 # Used for the Windows VM and the PostgreSQL admin. Because it's supplied by the
 # environment, "terraform apply --auto-approve" never stops to ask for it.
 variable "admin_password" {

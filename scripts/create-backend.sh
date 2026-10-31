@@ -7,7 +7,7 @@ ID="9969"   # personalize.sh replaces this
 RG="${ID}-tfstate-RG"
 SA="${ID}tfstatesa"
 LOC="canadacentral"
-TAGS=(Project="CCGC 5502 Terraform Project" Name="muskan.chander" ExpirationDate="2027-12-31" Environment="Learning")
+TAGS=(Project="CCGC 5502 Terraform Project" Name="muskan" ExpirationDate="2027-12-31" Environment="Learning")
 
 az group create -n "$RG" -l "$LOC" --tags "${TAGS[@]}" -o none
 az storage account create -n "$SA" -g "$RG" -l "$LOC" \
