@@ -2,31 +2,28 @@ resource "azurerm_log_analytics_workspace" "law" {
   name                = "${var.humber_id}-LAW"
   location            = var.location
   resource_group_name = var.resource_group_name
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
+  sku                 = var.law_sku
+  retention_in_days   = var.law_retention_days
   tags                = var.tags
 }
 
-# Azure requires vault names to START WITH A LETTER, so the ID can't be the
-# very first character here. "rsv" goes in front - the only exception to
-# the prefix rule, forced by Azure.
+# Vault names must start with a letter, so the ID can't come first
 resource "azurerm_recovery_services_vault" "rsv" {
   name                = "rsv-${var.humber_id}-vault"
   location            = var.location
   resource_group_name = var.resource_group_name
-  sku                 = "Standard"
-  storage_mode_type   = "LocallyRedundant"
+  sku                 = var.rsv_sku
+  storage_mode_type   = var.rsv_storage_mode
   tags                = var.tags
 }
 
-# Storage account names: 3-24 chars, lowercase letters and numbers only,
-# globally unique. Separate from the backend's "<id>tfstatesa" account.
+# Separate from the backend storage account; used for VM boot diagnostics
 resource "azurerm_storage_account" "sa" {
-  name                     = "${var.humber_id}ccgc5502sa"
+  name                     = "${var.humber_id}${var.storage_name_suffix}"
   location                 = var.location
   resource_group_name      = var.resource_group_name
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  min_tls_version          = "TLS1_2"
+  account_tier             = var.storage_account_tier
+  account_replication_type = var.storage_replication_type
+  min_tls_version          = var.storage_min_tls_version
   tags                     = var.tags
 }

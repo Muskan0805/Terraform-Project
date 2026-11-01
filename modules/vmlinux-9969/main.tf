@@ -1,17 +1,16 @@
-# for_each over the map of VMs (label => zone). Every resource below is keyed
-# by the same labels, so vm1's NIC, IP and extensions all line up as "vm1".
+# for_each over var.linux_vms (label => zone). Every resource is keyed by the
+# same labels, so vm1's IP, NIC and extensions all line up as "vm1".
 
 resource "azurerm_public_ip" "pip" {
   for_each            = var.linux_vms
   name                = "${var.humber_id}-linux-${each.key}-pip"
   location            = var.location
   resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-  sku                 = "Standard" # Basic public IPs are retired in Azure
+  allocation_method   = var.public_ip_allocation_method
+  sku                 = var.public_ip_sku
   zones               = [each.value]
-  # DNS labels must start with a letter, hence the "vm" in front of the ID
-  domain_name_label = "vm${var.humber_id}-linux-${each.key}"
-  tags              = var.tags
+  domain_name_label   = "vm${var.humber_id}-linux-${each.key}"
+  tags                = var.tags
 }
 
 resource "azurerm_network_interface" "nic" {
@@ -24,7 +23,7 @@ resource "azurerm_network_interface" "nic" {
   ip_configuration {
     name                          = var.ip_config_name
     subnet_id                     = var.subnet_id
-    private_ip_address_allocation = "Dynamic"
+    private_ip_address_allocation = var.private_ip_allocation
     public_ip_address_id          = azurerm_public_ip.pip[each.key].id
   }
 }
@@ -48,8 +47,8 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   os_disk {
     name                 = "${var.humber_id}-linux-${each.key}-osdisk"
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
+    caching              = var.os_disk_caching
+    storage_account_type = var.os_disk_storage_type
   }
 
   source_image_reference {
@@ -63,7 +62,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
     storage_account_uri = var.boot_diag_uri
   }
 
-  # The Azure Monitor agent authenticates with the VM's managed identity
+  # The Azure Monitor agent authenticates with this managed identity
   identity {
     type = "SystemAssigned"
   }
@@ -71,26 +70,25 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
 resource "azurerm_virtual_machine_extension" "network_watcher" {
   for_each                   = var.linux_vms
-  name                       = "NetworkWatcherAgentLinux"
+  name                       = var.network_watcher_extension.type
   virtual_machine_id         = azurerm_linux_virtual_machine.vm[each.key].id
-  publisher                  = "Microsoft.Azure.NetworkWatcher"
-  type                       = "NetworkWatcherAgentLinux"
-  type_handler_version       = "1.0"
-  auto_upgrade_minor_version = true
+  publisher                  = var.network_watcher_extension.publisher
+  type                       = var.network_watcher_extension.type
+  type_handler_version       = var.network_watcher_extension.version
+  auto_upgrade_minor_version = var.network_watcher_extension.auto_upgrade
   tags                       = var.tags
 }
 
 resource "azurerm_virtual_machine_extension" "azure_monitor" {
   for_each                   = var.linux_vms
-  name                       = "AzureMonitorLinuxAgent"
+  name                       = var.azure_monitor_extension.type
   virtual_machine_id         = azurerm_linux_virtual_machine.vm[each.key].id
-  publisher                  = "Microsoft.Azure.Monitor"
-  type                       = "AzureMonitorLinuxAgent"
-  type_handler_version       = "1.21"
-  auto_upgrade_minor_version = false
+  publisher                  = var.azure_monitor_extension.publisher
+  type                       = var.azure_monitor_extension.type
+  type_handler_version       = var.azure_monitor_extension.version
+  auto_upgrade_minor_version = var.azure_monitor_extension.auto_upgrade
   tags                       = var.tags
 
-  # Two extensions installing at the same moment on one VM can collide,
-  # so this one waits for Network Watcher to finish.
+  # two extensions installing on one VM at the same time can collide
   depends_on = [azurerm_virtual_machine_extension.network_watcher]
 }

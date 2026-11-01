@@ -1,12 +1,12 @@
-# count instead of for_each (as the brief asks). Bump vm_count and the
-# availability set holds them all - the set spreads them across fault domains.
+# count (as the brief asks). Raise vm_count and every VM lands in the same
+# availability set, spread across fault and update domains.
 
 resource "azurerm_availability_set" "avset" {
   name                         = "${var.humber_id}-win-avset"
   location                     = var.location
   resource_group_name          = var.resource_group_name
-  platform_fault_domain_count  = 2
-  platform_update_domain_count = 5
+  platform_fault_domain_count  = var.fault_domain_count
+  platform_update_domain_count = var.update_domain_count
   managed                      = true
   tags                         = var.tags
 }
@@ -16,8 +16,8 @@ resource "azurerm_public_ip" "pip" {
   name                = "${var.humber_id}-win-vm${count.index + 1}-pip"
   location            = var.location
   resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-  sku                 = "Standard"
+  allocation_method   = var.public_ip_allocation_method
+  sku                 = var.public_ip_sku
   domain_name_label   = "vm${var.humber_id}-win-vm${count.index + 1}"
   tags                = var.tags
 }
@@ -30,9 +30,9 @@ resource "azurerm_network_interface" "nic" {
   tags                = var.tags
 
   ip_configuration {
-    name                          = "internal"
+    name                          = var.ip_config_name
     subnet_id                     = var.subnet_id
-    private_ip_address_allocation = "Dynamic"
+    private_ip_address_allocation = var.private_ip_allocation
     public_ip_address_id          = azurerm_public_ip.pip[count.index].id
   }
 }
@@ -40,7 +40,7 @@ resource "azurerm_network_interface" "nic" {
 resource "azurerm_windows_virtual_machine" "vm" {
   count                 = var.vm_count
   name                  = "${var.humber_id}-win-vm${count.index + 1}"
-  computer_name         = "${var.humber_id}-win-vm${count.index + 1}" # Windows max = 15 chars
+  computer_name         = "${var.humber_id}-win-vm${count.index + 1}"
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = var.vm_size
@@ -52,15 +52,15 @@ resource "azurerm_windows_virtual_machine" "vm" {
 
   os_disk {
     name                 = "${var.humber_id}-win-vm${count.index + 1}-osdisk"
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
+    caching              = var.os_disk_caching
+    storage_account_type = var.os_disk_storage_type
   }
 
   source_image_reference {
-    publisher = "MicrosoftWindowsServer"
-    offer     = "WindowsServer"
-    sku       = "2022-Datacenter"
-    version   = "latest"
+    publisher = var.image.publisher
+    offer     = var.image.offer
+    sku       = var.image.sku
+    version   = var.image.version
   }
 
   boot_diagnostics {
@@ -70,22 +70,22 @@ resource "azurerm_windows_virtual_machine" "vm" {
 
 resource "azurerm_virtual_machine_extension" "antimalware" {
   count                      = var.vm_count
-  name                       = "IaaSAntimalware"
+  name                       = var.antimalware_extension.type
   virtual_machine_id         = azurerm_windows_virtual_machine.vm[count.index].id
-  publisher                  = "Microsoft.Azure.Security"
-  type                       = "IaaSAntimalware"
-  type_handler_version       = "1.3"
-  auto_upgrade_minor_version = true
+  publisher                  = var.antimalware_extension.publisher
+  type                       = var.antimalware_extension.type
+  type_handler_version       = var.antimalware_extension.version
+  auto_upgrade_minor_version = var.antimalware_extension.auto_upgrade
   tags                       = var.tags
 
   settings = jsonencode({
     AntimalwareEnabled        = true
-    RealtimeProtectionEnabled = "true"
+    RealtimeProtectionEnabled = tostring(var.antimalware_realtime_protection)
     ScheduledScanSettings = {
-      isEnabled = "true"
-      day       = "7"   # Saturday
-      time      = "120" # minutes after midnight = 2:00 AM
-      scanType  = "Quick"
+      isEnabled = tostring(var.antimalware_scan.enabled)
+      day       = tostring(var.antimalware_scan.day)
+      time      = tostring(var.antimalware_scan.time)
+      scanType  = var.antimalware_scan.type
     }
   })
 }

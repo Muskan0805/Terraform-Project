@@ -16,7 +16,6 @@ terraform {
 # azurerm v4 needs to know which subscription to use.
 # We don't hardcode it here - set it once per terminal session with:
 #   export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-# (env.sh does this for you)
 provider "azurerm" {
   features {
     resource_group {

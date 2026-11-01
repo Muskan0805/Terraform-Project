@@ -22,7 +22,7 @@ locals {
   }
 }
 
-# Passwords stay OUT of git. Set it before running Terraform:
+# Passwords stay OUT of git. 
 # Used for the Windows VM and the PostgreSQL admin. Because it's supplied by the
 # environment, "terraform apply --auto-approve" never stops to ask for it.
 variable "admin_password" {
